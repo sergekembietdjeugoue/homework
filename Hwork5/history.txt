@@ -1,0 +1,1 @@
+['Added income: 12548.0', 'Expense: 124.0', 'Bought 5 x 223 @ 12.0 each', 'Added income: 45000000.0', 'Expense: 25012364.0', 'Bought 35 x pp @ 21.0 each', 'Sold 2 x pp @ 12.0 each']
