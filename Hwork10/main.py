@@ -1,71 +1,101 @@
-from functools import wraps
-
-class Manager:
+# --- Base Accounting System (simplified for demonstration) ---
+class AccountingSystem:
     def __init__(self):
-        self.tasks = {}      # mapping of task names to functions
-        self.records = []    # keep track of actions
+        self.records = []
+        self.balance_amount = 0
+
+    def record(self, message):
+        """Record a transaction message."""
+        self.records.append(message)
+        print(f"[Recorded] {message}")
+
+    def show_records(self):
+        """Display all recorded transactions."""
+        print("\n--- Transaction Records ---")
+        for rec in self.records:
+            print(rec)
+        print(f"Final Balance: {self.balance_amount}\n")
+
+
+
+class Manager(AccountingSystem):
+    def __init__(self):
+        super().__init__()
+        self.tasks = {}  # Maps task names to methods
 
     def assign(self, name, func):
-        """Assign a function to a task name."""
-        self.tasks[name] = func.__get__(self, Manager)  # bind to this instance
+        """Assign a function (task) by name."""
+        self.tasks[name] = func
+        print(f"Task '{name}' assigned.")
 
-    def run(self, name, *args, **kwargs):
-        """Run a task by its assigned name."""
-        if name not in self.tasks:
-            raise ValueError(f"Task '{name}' not found")
-        return self.tasks[name](*args, **kwargs)
+    def execute(self, name, *args, **kwargs):
+        """Execute a task by name."""
+        if name in self.tasks:
+            print(f"\nExecuting '{name}' operation...")
+            return self.tasks[name](*args, **kwargs)
+        else:
+            print(f"Task '{name}' not found.")
 
-    # ------------- DECORATORS -------------
-    def operation(self, action):
-        """General-purpose decorator for logging operations."""
+
+    def log_action(self, action_type):
+        """Decorator to log actions automatically."""
         def decorator(func):
-            @wraps(func)
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
-                self.records.append((action, result))
-                print(f"[{action.upper()}] {result}")
+                self.record(f"{action_type} of {kwargs.get('amount', 0)} completed.")
                 return result
             return wrapper
         return decorator
 
-    def sale(self, func):
-        return self.operation("sale")(func)
+    def update_balance(self, func):
+        """Decorator to automatically update balance."""
+        def wrapper(*args, **kwargs):
+            amount = kwargs.get('amount', 0)
+            if func.__name__ == 'sale':
+                self.balance_amount += amount
+            elif func.__name__ == 'purchase':
+                self.balance_amount -= amount
+            return func(*args, **kwargs)
+        return wrapper
 
-    def purchase(self, func):
-        return self.operation("purchase")(func)
 
-    def balance(self, func):
-        return self.operation("balance")(func)
+    @property
+    def sale(self):
+        @self.update_balance
+        @self.log_action("Sale")
+        def sale(*args, **kwargs):
+            amount = kwargs.get('amount', 0)
+            print(f"Selling goods worth {amount}")
+        return sale
+
+    @property
+    def purchase(self):
+        @self.update_balance
+        @self.log_action("Purchase")
+        def purchase(*args, **kwargs):
+            amount = kwargs.get('amount', 0)
+            print(f"Purchasing goods worth {amount}")
+        return purchase
+
+    @property
+    def balance(self):
+        def show_balance():
+            print(f"Current Balance: {self.balance_amount}")
+        return show_balance
 
 
-# ----------------- Example Usage -----------------
+# --- Testing the Manager Class ---
 if __name__ == "__main__":
-    manager = Manager()
+    mgr = Manager()
 
-    @manager.sale
-    def sell_item(item, qty):
-        return f"Sold {qty} of {item}"
+    # Assign actions to manager
+    mgr.assign("sale", mgr.sale)
+    mgr.assign("purchase", mgr.purchase)
+    mgr.assign("balance", mgr.balance)
 
-    @manager.purchase
-    def buy_item(item, qty):
-        return f"Purchased {qty} of {item}"
+    # Execute actions
+    mgr.execute("sale", amount=500)
+    mgr.execute("purchase", amount=200)
+    mgr.execute("balance")
 
-    @manager.balance
-    def show_balance():
-        return "Balance checked"
-
-    # Assign tasks dynamically
-    manager.assign("sell", sell_item)
-    manager.assign("buy", buy_item)
-    manager.assign("balance", show_balance)
-
-    # Execute tasks
-    manager.run("sell", "laptop", 2)
-    manager.run("buy", "mouse", 5)
-    manager.run("balance")
-
-    print("\n--- Records ---")
-    for action, msg in manager.records:
-        print(action, "->", msg)
-
-
+    mgr.show_records()
